@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>El Botanero — Sistema de Mesas</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #f5a623;
+    --accent2: #e8562a;
+    --green: #2dce7a;
+    --red: #e84545;
+    --blue: #4a9eff;
+    --text: #f0f0f8;
+    --muted: #666680;
+    --card: #14141f;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 24px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    height: 52px;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    color: var(--accent);
+    letter-spacing: 3px;
+  }
+  .logo span { color: var(--text); }
+
+  .header-stats { display: flex; gap: 20px; align-items: center; }
+
+  .stat { text-align: center; }
+  .stat-val { font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 600; color: var(--accent); }
+  .stat-lbl { font-size: 0.55rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  .db-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.68rem; color: var(--muted);
+    cursor: pointer; padding: 5px 11px;
+    border-radius: 6px; border: 1px solid var(--border);
+    transition: all 0.2s;
+  }
+  .db-badge:hover { border-color: var(--accent); color: var(--accent); }
+  .db-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+  .app {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: calc(100vh - 52px);
+    overflow: hidden;
+  }
+
+  .mesas-section {
+    padding: 12px 10px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    background: var(--bg);
+  }
+  .mesas-section::-webkit-scrollbar { width: 3px; }
+  .mesas-section::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem; letter-spacing: 3px;
+    color: var(--muted); margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+
+  .mesas-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 7px;
+  }
+
+  .mesa-card {
+    aspect-ratio: 1.05;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: var(--card);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    transition: all 0.18s ease;
+    position: relative;
+    padding: 5px 4px;
+  }
+
+  .mesa-card.libre:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 5px 14px rgba(245,166,35,0.12); }
+  .mesa-card.ocupada { border-color: var(--accent2); background: rgba(232,86,42,0.05); }
+  .mesa-card.ocupada:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(232,86,42,0.18); border-color: var(--accent); }
+  .mesa-card.activa { border-color: var(--accent) !important; box-shadow: 0 0 0 2px rgba(245,166,35,0.22); background: rgba(245,166,35,0.04); }
+
+  .mesa-icon { font-size: 1.1rem; }
+  .mesa-num { font-family: 'Bebas Neue', sans-serif; font-size: 0.78rem; letter-spacing: 1px; color: var(--muted); }
+  .mesa-ocupada-nombre { font-size: 0.58rem; font-weight: 600; color: var(--accent2); text-transform: uppercase; max-width: 86%; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mesa-total { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--accent); }
+
+  .mesa-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); position: absolute; top: 6px; right: 6px; animation: pulse 2s infinite; }
+  .mesa-dot.libre-dot { background: var(--muted); animation: none; }
+
+  @keyframes pulse { 0%,100%{ opacity:1;transform:scale(1); } 50%{ opacity:0.5;transform:scale(1.4); } }
+
+  .ticket-panel {
+    background: var(--bg2);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .empty-panel {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px; color: var(--muted); text-align: center;
+  }
+  .empty-panel .big-icon { font-size: 3.5rem; opacity: 0.18; }
+  .empty-panel p { font-size: 0.88rem; line-height: 1.6; }
+
+  .ticket-header {
+    padding: 14px 24px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .ticket-mesa-info { display: flex; align-items: center; justify-content: space-between; }
+  .ticket-mesa-nombre { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 2px; color: var(--accent); }
+  .ticket-mesa-num { font-size: 0.7rem; color: var(--muted); margin-top: -3px; }
+
+  .ticket-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .menu-col { display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; }
+  .menu-search { padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .search-input {
+    width: 100%;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 14px;
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 0.84rem; outline: none; transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  .menu-tabs { display: flex; padding: 0 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .menu-tab { padding: 8px 14px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
+  .menu-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .menu-items { flex: 1; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+  .menu-items::-webkit-scrollbar { width: 3px; }
+  .menu-items::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .menu-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; border-radius: 8px; cursor: pointer;
+    transition: background 0.15s; border: 1px solid transparent;
+  }
+  .menu-item:hover { background: var(--bg3); border-color: var(--border); }
+  .menu-item-info { display: flex; align-items: center; gap: 10px; }
+  .menu-item-icon { font-size: 1.2rem; }
+  .menu-item-name { font-size: 0.84rem; font-weight: 500; }
+  .menu-item-cat { font-size: 0.63rem; color: var(--muted); text-transform: uppercase; }
+  .menu-item-price { font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; color: var(--accent); font-weight: 600; }
+
+  .add-btn {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: rgba(245,166,35,0.12); border: 1px solid rgba(245,166,35,0.3);
+    color: var(--accent); font-size: 1.1rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .add-btn:hover { background: var(--accent); color: #000; }
+
+  .items-col { display: flex; flex-direction: column; overflow: hidden; }
+  .items-col-header { padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0; }
+
+  .ticket-items { flex: 1; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; }
+  .ticket-items::-webkit-scrollbar { width: 3px; }
+  .ticket-items::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .ticket-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px;
+    background: var(--bg3); border: 1px solid var(--border);
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:translateX(0)} }
+
+  .ticket-item-icon { font-size: 1rem; flex-shrink: 0; }
+  .ticket-item-info { flex: 1; min-width: 0; }
+  .ticket-item-name { font-size: 0.8rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ticket-item-unit { font-size: 0.62rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .ticket-qty-ctrl { display: flex; align-items: center; gap: 5px; }
+
+  .qty-btn {
+    width: 22px; height: 22px; border-radius: 5px;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-size: 0.9rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .qty-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .qty-btn.del:hover { border-color: var(--red); color: var(--red); }
+
+  .qty-num { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 600; min-width: 18px; text-align: center; }
+  .ticket-item-total { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent); font-weight: 600; min-width: 50px; text-align: right; }
+
+  .ticket-empty-msg { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 28px 16px; }
+
+  .ticket-footer {
+    padding: 12px 20px; border-top: 1px solid var(--border);
+    background: var(--bg); flex-shrink: 0;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .ticket-total-row { display: flex; align-items: center; gap: 10px; }
+  .ticket-total-lbl { font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; color: var(--muted); }
+  .ticket-total-val { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 600; color: var(--accent); }
+
+  .btn-cerrar {
+    flex: 1; padding: 12px; border-radius: 10px;
+    background: var(--accent2); border: none; color: white;
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem;
+    letter-spacing: 2px; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-cerrar:hover { background: #ff6a3d; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(232,86,42,0.35); }
+
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(4px); z-index: 200; display: none; align-items: center; justify-content: center; }
+  .overlay.show { display: flex; }
+
+  .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 18px; padding: 28px; width: 100%; max-width: 400px; animation: modalIn 0.22s ease; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  @keyframes modalIn { from{opacity:0;transform:scale(0.94) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 2px; margin-bottom: 4px; color: var(--accent); }
+  .modal-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 18px; }
+
+  .modal-input { width: 100%; background: var(--bg3); border: 1.5px solid var(--border); border-radius: 10px; padding: 11px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 1rem; outline: none; transition: border-color 0.2s; margin-bottom: 18px; }
+  .modal-input:focus { border-color: var(--accent); }
+
+  .modal-btns { display: flex; gap: 10px; }
+
+  .btn-cancel { flex: 1; padding: 10px; border-radius: 8px; background: transparent; border: 1.5px solid var(--border); color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; }
+  .btn-cancel:hover { border-color: var(--text); color: var(--text); }
+
+  .btn-confirm { flex: 2; padding: 10px; border-radius: 8px; background: var(--accent); border: none; color: #000; font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; }
+  .btn-confirm:hover { background: #ffbe4a; }
+
+  .pago-opts { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 14px; }
+  .pago-opt { padding: 11px 6px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg3); cursor: pointer; text-align: center; transition: all 0.2s; }
+  .pago-opt:hover { border-color: var(--accent); }
+  .pago-opt.selected { border-color: var(--accent); background: rgba(245,166,35,0.1); }
+  .pago-opt .pago-icon { font-size: 1.4rem; display: block; margin-bottom: 3px; }
+  .pago-opt .pago-name { font-size: 0.66rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  .pago-opt.selected .pago-name { color: var(--accent); }
+
+  .resumen-ticket { background: var(--bg3); border-radius: 10px; padding: 12px; margin-bottom: 14px; border: 1px solid var(--border); max-height: 140px; overflow-y: auto; }
+  .resumen-item { display: flex; justify-content: space-between; font-size: 0.77rem; padding: 3px 0; color: var(--muted); }
+  .resumen-total { display: flex; justify-content: space-between; font-size: 0.92rem; font-weight: 600; padding-top: 8px; margin-top: 7px; border-top: 1px solid var(--border); color: var(--text); }
+  .resumen-total .val { font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+
+  .nota-input-wrap { margin-bottom: 14px; }
+  .nota-input-wrap label { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 5px; }
+  .nota-input { width: 100%; background: var(--bg3); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.8rem; outline: none; transition: border-color 0.2s; resize: none; height: 48px; }
+  .nota-input:focus { border-color: var(--accent); }
+
+  .modal-wide { max-width: 750px; }
+
+  .db-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+  .db-table th { text-align: left; padding: 8px 10px; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .db-table td { padding: 8px 10px; border-bottom: 1px solid rgba(42,42,58,0.5); }
+  .db-table tr:last-child td { border-bottom: none; }
+
+  .tag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 4px; font-size: 0.63rem; font-weight: 600; text-transform: uppercase; }
+  .tag.efectivo { background: rgba(45,206,122,0.15); color: var(--green); }
+  .tag.transferencia { background: rgba(74,158,255,0.15); color: var(--blue); }
+  .tag.tarjeta { background: rgba(245,166,35,0.15); color: var(--accent); }
+
+  .btn-del-historial { background: transparent; border: none; color: var(--muted); cursor: pointer; transition: color 0.2s; padding: 4px; font-size: 0.9rem; }
+  .btn-del-historial:hover { color: var(--red); }
+
+  .export-btn {
+    margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px;
+    background: rgba(45,206,122,0.08); border: 1px solid rgba(45,206,122,0.3);
+    color: var(--green); font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s; font-weight: 600;
+  }
+  .export-btn:hover { background: rgba(45,206,122,0.15); border-color: var(--green); }
+
+  .mesa-acciones { display: flex; gap: 7px; }
+  .btn-mesa-accion {
+    padding: 5px 11px; border-radius: 6px; font-size: 0.7rem; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); background: var(--bg3); color: var(--muted);
+    transition: all 0.18s; display: flex; align-items: center; gap: 5px;
+  }
+  .btn-mesa-accion:hover { color: var(--text); border-color: var(--text); }
+  .btn-mesa-accion.danger:hover { color: var(--red); border-color: var(--red); background: rgba(232,69,69,0.08); }
+
+  .advertencia-box { background: rgba(232,69,69,0.08); border: 1.5px solid rgba(232,69,69,0.3); border-radius: 10px; padding: 14px; margin-bottom: 18px; font-size: 0.82rem; color: var(--text); }
+  .advertencia-box strong { color: var(--red); }
+
+  .toast-container { position: fixed; bottom: 18px; right: 18px; z-index: 500; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+  .toast { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--green); border-radius: 8px; padding: 9px 15px; font-size: 0.78rem; animation: toastIn 0.3s ease; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+  .toast.error { border-left-color: var(--red); }
+  @keyframes toastIn { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:translateX(0)} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">El <span>Botanero</span></div>
+  <div class="header-stats">
+    <div class="stat"><div class="stat-val" id="stat-mesas">0</div><div class="stat-lbl">Mesas</div></div>
+    <div class="stat"><div class="stat-val" id="stat-ventas">$0</div><div class="stat-lbl">Ventas</div></div>
+    <div class="stat"><div class="stat-val" id="stat-cuentas">0</div><div class="stat-lbl">Cuentas</div></div>
+    <div class="db-badge" onclick="openDB()"><div class="db-dot"></div> Ver historial</div>
+  </div>
+</header>
+
+<div class="app">
+  <div class="mesas-section">
+    <div class="section-title">🍺 Mesas</div>
+    <div class="mesas-grid" id="mesas-grid"></div>
+  </div>
+  <div class="ticket-panel" id="ticket-panel">
+    <div class="empty-panel"><div class="big-icon">🪑</div><p>Selecciona una mesa ocupada</p></div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-abrir">
+  <div class="modal">
+    <div class="modal-title">Nueva Mesa</div>
+    <input type="text" class="modal-input" id="nombre-mesa-input" placeholder="Nombre cliente..." maxlength="20">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-abrir')">Cancelar</button>
+      <button class="btn-confirm" onclick="abrirMesa()">Abrir Mesa</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-renombrar">
+  <div class="modal">
+    <div class="modal-title">Renombrar Mesa</div>
+    <input type="text" class="modal-input" id="renombrar-input" placeholder="Nuevo nombre..." maxlength="20">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-renombrar')">Cancelar</button>
+      <button class="btn-confirm" onclick="confirmarRenombrar()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-liberar">
+  <div class="modal">
+    <div class="modal-title" style="color:var(--red);">⚠️ Liberar Mesa</div>
+    <div class="advertencia-box"><strong>¡Advertencia!</strong> Estás borrando la mesa por accidente. Esta acción <strong>no se verá reflejada</strong> en el cierre del Excel.</div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-liberar')">Cancelar</button>
+      <button class="btn-confirm" style="background:var(--red);color:#fff;" onclick="confirmarLiberar()">Borrar mesa</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-cerrar">
+  <div class="modal">
+    <div class="modal-title">Cerrar Cuenta</div>
+    <div class="resumen-ticket" id="resumen-ticket"></div>
+    <div class="pago-opts">
+      <div class="pago-opt" onclick="selectPago('efectivo')" id="pago-efectivo"><span class="pago-icon">💵</span><div class="pago-name">Efectivo</div></div>
+      <div class="pago-opt" onclick="selectPago('transferencia')" id="pago-transferencia"><span class="pago-icon">📲</span><div class="pago-name">Transf.</div></div>
+      <div class="pago-opt" onclick="selectPago('tarjeta')" id="pago-tarjeta"><span class="pago-icon">💳</span><div class="pago-name">Tarjeta</div></div>
+    </div>
+    <div class="nota-input-wrap"><label>Nota</label><textarea class="nota-input" id="nota-cierre"></textarea></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-cerrar')">Cancelar</button>
+      <button class="btn-confirm" style="background:var(--accent2);color:#fff;" onclick="cerrarCuenta()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-db">
+  <div class="modal modal-wide">
+    <div class="modal-title">Historial de cierres</div>
+    <div id="db-content" style="max-height:400px;overflow-y:auto;margin:15px 0;"></div>
+    <button class="export-btn" onclick="exportExcel()">📊 Exportar a Excel</button>
+    <button class="btn-cancel" style="width:100%;margin-top:10px;" onclick="closeModal('modal-db')">Cerrar</button>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const MENU = [
+  { id:1, nombre:"Caguama", precio:100, cat:"Bebidas", icon:"🍺" },
+  { id:2, nombre:"Cigarros", precio:10, cat:"Bebidas", icon:"🚬" },
+  { id:3, nombre:"Refresco", precio:30, cat:"Bebidas", icon:"🥤" },
+  { id:4, nombre:"Vaso Michelado con clamato", precio:15, cat:"Bebidas", icon:"🍺" },
+  { id:5, nombre:"Vaso Michelado sin clamato", precio:10, cat:"Bebidas", icon:"🍺" },
+  { id:6, nombre:"Cantarito Litro", precio:100, cat:"Cantaritos", icon:"🍹" },
+  { id:7, nombre:"Cantarito Medio", precio:50, cat:"Cantaritos", icon:"🍹" },
+];
+
+const PASS = "20051017";
+let mesas = JSON.parse(localStorage.getItem("botanero_mesas") || "{}");
+let db = JSON.parse(localStorage.getItem("botanero_db") || "[]");
+let mesaActiva = null;
+let pagoSeleccionado = null;
+
+function init() { renderMesas(); updateStats(); }
+function save() { localStorage.setItem("botanero_mesas", JSON.stringify(mesas)); localStorage.setItem("botanero_db", JSON.stringify(db)); updateStats(); }
+
+function renderMesas() {
+  const grid = document.getElementById("mesas-grid"); grid.innerHTML = "";
+  for (let i = 1; i <= 10; i++) {
+    const m = mesas[i];
+    const div = document.createElement("div");
+    div.className = `mesa-card ${m?"ocupada":""} ${mesaActiva==i?"activa":""}`;
+    div.onclick = () => { mesaActiva=i; m ? renderTicketPanel() : openModal('modal-abrir'); renderMesas(); };
+    div.innerHTML = `<div class="mesa-num">Mesa ${i}</div>` + (m ? `<div class="mesa-ocupada-nombre">${m.nombre}</div><div class="mesa-total">$${calcTotal(i)}</div>` : "");
+    grid.appendChild(div);
+  }
+}
+
+function calcTotal(id) { return (mesas[id]?.items || []).reduce((s,it) => s + it.precio*it.qty, 0); }
+
+function abrirMesa() {
+  const n = document.getElementById("nombre-mesa-input").value.trim();
+  if(!n) return;
+  mesas[mesaActiva] = { nombre: n, items: [] };
+  save(); closeModal('modal-abrir'); renderTicketPanel(); renderMesas();
+}
+
+function renderTicketPanel() {
+  const p = document.getElementById("ticket-panel"); const m = mesas[mesaActiva];
+  if (!m) {
+    p.innerHTML = `<div class="empty-panel"><div class="big-icon">🪑</div><p>Selecciona una mesa ocupada</p></div>`;
+    return;
+  }
+  p.innerHTML = `
+    <div class="ticket-header">
+      <div class="ticket-mesa-info">
+        <div><div class="ticket-mesa-nombre">${m.nombre}</div><div class="ticket-mesa-num">Mesa ${mesaActiva}</div></div>
+        <div class="mesa-acciones">
+          <button class="btn-mesa-accion" onclick="openModal('modal-renombrar')">✏️ Renombrar</button>
+          <button class="btn-mesa-accion danger" onclick="openModal('modal-liberar')">🗑️ Liberar</button>
+        </div>
+      </div>
+    </div>
+    <div class="ticket-body">
+      <div class="menu-col"><div class="menu-items">${MENU.map(it=>`<div class="menu-item"><span>${it.icon} ${it.nombre}</span><button class="add-btn" onclick="addItem(${it.id})">+</button></div>`).join("")}</div></div>
+      <div class="items-col"><div class="ticket-items" id="t-items"></div></div>
+    </div>
+    <div class="ticket-footer"><div class="ticket-total-val" id="t-total">$0</div><button class="btn-cerrar" onclick="prepCerrar()">Proceder a pago</button></div>`;
+  renderTicketItems();
+  document.getElementById("renombrar-input").value = m.nombre;
+}
+
+function renderTicketItems() {
+  const c = document.getElementById("t-items"); const m = mesas[mesaActiva];
+  if(!c || !m) return;
+  c.innerHTML = m.items.map((it,idx) => `<div class="ticket-item"><div style="flex:1">${it.nombre}</div><button class="qty-btn" onclick="changeQty(${idx},-1)">-</button><div class="qty-num">${it.qty}</div><button class="qty-btn" onclick="changeQty(${idx},1)">+</button><div class="ticket-item-total">$${it.precio*it.qty}</div></div>`).join("");
+  document.getElementById("t-total").textContent = `$${calcTotal(mesaActiva)}`;
+}
+
+function addItem(id) {
+  const p = MENU.find(x=>x.id==id); const m = mesas[mesaActiva];
+  const ex = m.items.find(x=>x.id==id);
+  ex ? ex.qty++ : m.items.push({...p, qty:1});
+  save(); renderTicketItems(); renderMesas();
+}
+
+function changeQty(idx, d) {
+  mesas[mesaActiva].items[idx].qty += d;
+  if(mesas[mesaActiva].items[idx].qty<=0) mesas[mesaActiva].items.splice(idx,1);
+  save(); renderTicketItems(); renderMesas();
+}
+
+function confirmarRenombrar() {
+  const n = document.getElementById("renombrar-input").value.trim();
+  if(n) { mesas[mesaActiva].nombre = n; save(); renderMesas(); renderTicketPanel(); closeModal('modal-renombrar'); }
+}
+
+function confirmarLiberar() { 
+    delete mesas[mesaActiva]; 
+    mesaActiva=null; 
+    save(); 
+    renderMesas(); 
+    renderTicketPanel(); 
+    closeModal('modal-liberar'); 
+}
+
+function prepCerrar() {
+  const m = mesas[mesaActiva]; if(!m.items.length) return;
+  document.getElementById("resumen-ticket").innerHTML = m.items.map(i=>`<div>${i.qty}x ${i.nombre} - $${i.precio*i.qty}</div>`).join("") + `<strong>Total: $${calcTotal(mesaActiva)}</strong>`;
+  openModal('modal-cerrar');
+}
+
+function selectPago(t) { pagoSeleccionado = t; document.querySelectorAll(".pago-opt").forEach(o=>o.classList.toggle("selected", o.id==`pago-${t}`)); }
+
+function cerrarCuenta() {
+  if(!pagoSeleccionado) return;
+  const m = mesas[mesaActiva];
+  db.push({ 
+      id: Date.now(), 
+      fecha: new Date().toLocaleString(), 
+      mesa: mesaActiva, 
+      nombre: m.nombre, 
+      total: calcTotal(mesaActiva), 
+      pago: pagoSeleccionado, 
+      nota: document.getElementById("nota-cierre").value, 
+      detalle: m.items.map(i=>`${i.qty}x ${i.nombre}`).join(", ") 
+  });
+  
+  delete mesas[mesaActiva]; 
+  mesaActiva = null; // Limpiar selección
+  save(); 
+  closeModal('modal-cerrar'); 
+  renderMesas(); 
+  renderTicketPanel(); // Esto mostrará el panel vacío automáticamente
+}
+
+function openDB() {
+  const c = document.getElementById("db-content");
+  c.innerHTML = `<table class="db-table"><thead><tr><th>Fecha</th><th>Mesa</th><th>Nombre</th><th>Total</th><th>Acción</th></tr></thead><tbody>${db.map((r,i)=>`<tr><td>${r.fecha}</td><td>${r.mesa}</td><td>${r.nombre}</td><td>$${r.total}</td><td><button class="btn-del-historial" onclick="borrarH(${i})">🗑️</button></td></tr>`).join("")}</tbody></table>`;
+  openModal('modal-db');
+}
+
+function borrarH(i) {
+  const p = prompt("Contraseña de seguridad:");
+  if(p === PASS) { db.splice(i,1); save(); openDB(); toast("Registro borrado"); }
+  else if(p) toast("Error: Contraseña incorrecta", true);
+}
+
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(db.map(r=>({ ID:r.id, Fecha:r.fecha, Mesa:r.mesa, Cliente:r.nombre, "Detalle Consumo":r.detalle, Total:r.total, Pago:r.pago, Nota:r.nota })));
+  XLSX.utils.book_append_sheet(wb, ws, "Cierres");
+  XLSX.writeFile(wb, "Cierre_ElBotanero.xlsx");
+}
+
+function updateStats() {
+  document.getElementById("stat-mesas").textContent = Object.keys(mesas).length;
+  document.getElementById("stat-ventas").textContent = `$${db.reduce((s,r)=>s+r.total,0)}`;
+  document.getElementById("stat-cuentas").textContent = db.length;
+}
+
+function openModal(id) { document.getElementById(id).classList.add("show"); }
+function closeModal(id) { document.getElementById(id).classList.remove("show"); }
+function toast(m, e=false) { const t=document.createElement("div"); t.className=`toast ${e?"error":""}`; t.textContent=m; document.getElementById("toasts").appendChild(t); setTimeout(()=>t.remove(),2500); }
+init();
+</script>
+</body>
+</html>
