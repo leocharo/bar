@@ -18,10 +18,16 @@
     <div class="stat"><div class="stat-val" id="stat-ventas">$0</div><div class="stat-lbl">Ventas</div></div>
     <div class="sep"></div>
     <div class="stat"><div class="stat-val" id="stat-cuentas">0</div><div class="stat-lbl">Cuentas</div></div>
+    <div class="sep"></div>
+    <div class="stat stat-total-btn" onclick="toggleTotalDia()" title="Ver total del día">
+      <div class="stat-val" id="stat-total-dia" style="filter:blur(6px);user-select:none;transition:filter 0.3s;">$0</div>
+      <div class="stat-lbl">👁 Total Día</div>
+    </div>
     <div class="header-btns">
       <div class="inv-badge" style="border-color:rgba(232,86,42,0.4);color:var(--accent2);" onclick="openPagina('page-productos')">🛒 Productos</div>
       <div class="inv-badge" onclick="openInventario()">📦 Inventario</div>
       <div class="db-badge" onclick="openDB()"><div class="db-dot"></div> Historial</div>
+      <div class="inv-badge" style="border-color:rgba(255,60,60,0.5);color:#ff4444;" onclick="confirmarCerrarDia()">🌙 Cerrar Día</div>
     </div>
   </div>
 </header>
@@ -192,7 +198,6 @@
   <div class="modal inv-modal">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <div class="modal-title" style="margin-bottom:0;">📦 Inventario</div>
-      <button class="btn-inv-add" style="font-size:0.76rem;padding:6px 14px;" onclick="openAgregarInvProducto()">+ Nuevo producto</button>
     </div>
     <div id="inv-alertas"></div>
     <div class="inv-items" id="inv-items-list"></div>
@@ -335,6 +340,16 @@
         <button class="btn-cancel" id="btn-cancel-edit-prod" style="width:100%;margin-top:8px;display:none;" onclick="cancelarEditProd()">Cancelar edición</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Modal: Cerrar Día -->
+<div class="overlay" id="modal-cerrar-dia">
+  <div class="modal">
+    <div class="modal-title" style="color:var(--red);">🌙 Cerrar el Día</div>
+    <div class="advertencia-box"><strong>⚠️ Esta acción borrará TODAS las mesas abiertas</strong> y reiniciará el sistema para el siguiente día. El historial de ventas y el inventario <strong>se conservan</strong>.<br><br>Se exportará el Excel automáticamente antes de borrar.</div>
+    <div class="add-prod-field" style="margin-top:10px;"><label>🔐 Contraseña de seguridad</label><input type="password" class="add-prod-input" id="cerrar-dia-pass" placeholder="••••••••"></div>
+    <div class="modal-btns"><button class="btn-cancel" onclick="closeModal('modal-cerrar-dia')">Cancelar</button><button class="btn-confirm" style="background:var(--red);color:#fff;" onclick="ejecutarCerrarDia()">🌙 Cerrar el Día</button></div>
   </div>
 </div>
 
@@ -491,17 +506,26 @@ function renderTicketPanel() {
 }
 
 function buildMenuHTML() {
-  return MENU.map(it => {
-    const stockInfo = getStockInfo(it);
-    const disabled = stockInfo.out ? "disabled" : "";
-    return `<div class="menu-item">
-      <div class="menu-item-left">
-        <div class="menu-item-name-row">${it.icon} ${it.nombre}</div>
-        <div class="menu-item-price">$${it.precio}</div>
-        ${stockInfo.html}
-      </div>
-      <button class="add-btn" onclick="addItem(${it.id})" ${disabled}>+</button>
-    </div>`;
+  // Agrupar por categoría
+  const grouped = {};
+  MENU.forEach(it => {
+    if (!grouped[it.cat]) grouped[it.cat] = [];
+    grouped[it.cat].push(it);
+  });
+  return Object.entries(grouped).map(([cat, items]) => {
+    const itemsHTML = items.map(it => {
+      const stockInfo = getStockInfo(it);
+      const disabled = stockInfo.out ? "disabled" : "";
+      return `<div class="menu-item">
+        <div class="menu-item-left">
+          <div class="menu-item-name-row">${it.icon} ${it.nombre}</div>
+          <div class="menu-item-price">$${it.precio}</div>
+          ${stockInfo.html}
+        </div>
+        <button class="add-btn" onclick="addItem(${it.id})" ${disabled}>+</button>
+      </div>`;
+    }).join("");
+    return `<div class="menu-cat-header">${cat}</div>${itemsHTML}`;
   }).join("");
 }
 
@@ -940,18 +964,27 @@ function renderInvModal() {
   alertDiv.innerHTML = "";
   listDiv.innerHTML  = "";
 
-  Object.entries(inv).forEach(([key, item]) => {
-    const pct = item.maxStock > 0 ? (item.stock / item.maxStock) * 100 : 0;
+  // Solo mostrar caguama y cigarros
+  const KEYS_VISIBLES = ["caguama", "cigarros"];
+
+  // Asegurar que cigarros exista en inv
+  if (!inv["cigarros"]) {
+    inv["cigarros"] = { nombre: "Cigarros", icon: "🚬", stock: 0, maxStock: 0, lowThreshold: 5 };
+    save();
+  }
+
+  KEYS_VISIBLES.forEach(key => {
+    if (!inv[key]) return;
+    const item = inv[key];
     const isLow = item.stock > 0 && item.stock <= item.lowThreshold;
     const isOut = item.stock <= 0;
 
     if (isOut && item.maxStock > 0) {
       alertDiv.innerHTML += `<div class="inv-alerta">❌ Sin stock de <strong>${item.nombre}</strong> — ¡Necesitas reabastecerte!</div>`;
     } else if (isLow) {
-      alertDiv.innerHTML += `<div class="inv-advertencia">⚠️ Pocas ${item.nombre}s: solo quedan <strong>${item.stock}</strong></div>`;
+      alertDiv.innerHTML += `<div class="inv-advertencia">⚠️ Pocas ${item.nombre}: solo quedan <strong>${item.stock}</strong></div>`;
     }
 
-    const barClass = isOut ? "out" : isLow ? "low" : "";
     const numClass = isOut ? "out" : isLow ? "low" : "";
 
     listDiv.innerHTML += `
@@ -962,30 +995,17 @@ function renderInvModal() {
             <div class="inv-item-name">${item.nombre}</div>
             <button class="btn-inv-del" onclick="abrirDelStock('${key}')">🗑️ Reducir</button>
           </div>
-          <div class="inv-item-stock-row">
-            <div class="inv-stock-bar-wrap"><div class="inv-stock-bar ${barClass}" style="width:${Math.min(pct,100)}%"></div></div>
-            <div class="inv-stock-num ${numClass}">${item.stock} / ${item.maxStock}</div>
+          <div style="display:flex;align-items:center;gap:10px;margin:6px 0 10px;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:${isOut?'var(--red)':isLow?'var(--accent)':'var(--green)'};" class="${numClass}">${item.stock}</div>
+            <div style="font-size:0.72rem;color:var(--muted);">unidades</div>
           </div>
-          <div class="inv-add-row" style="margin-top:7px;">
+          <div class="inv-add-row" style="margin-top:4px;">
             <input type="number" class="inv-qty-input" id="inv-input-${key}" placeholder="+" min="1">
             <button class="btn-inv-add" onclick="addInventario('${key}')">+ Agregar</button>
-            <select class="inv-qty-input" id="inv-cartones-${key}" style="width:auto;padding:5px 6px;">
-              <option value="">Cartón</option>
-              <option value="12">12 (1 cartón)</option>
-              <option value="24">24 (2 cartones)</option>
-              <option value="36">36 (3 cartones)</option>
-              <option value="48">48 (4 cartones)</option>
-              <option value="60">60 (5 cartones)</option>
-            </select>
-            <button class="btn-inv-add" onclick="addCarton('${key}')">+ Cartón</button>
           </div>
         </div>
       </div>`;
   });
-
-  if (Object.keys(inv).length === 0) {
-    listDiv.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:0.82rem;padding:24px;">Sin productos en inventario. Agrega uno con el botón de arriba.</div>`;
-  }
 }
 
 function addInventario(key) {
@@ -1099,10 +1119,28 @@ function exportExcel() {
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
+let totalDiaVisible = false;
+
 function updateStats() {
   document.getElementById("stat-mesas").textContent = Object.values(mesas).filter(m => m && !m.oculta).length;
   document.getElementById("stat-ventas").textContent = `$${db.reduce((s, r) => s + r.total, 0)}`;
   document.getElementById("stat-cuentas").textContent = db.filter(r => r.tipo !== "parcial").length;
+
+  // Total del día = cuentas cerradas + consumo activo en mesas abiertas
+  const cerrado = db.reduce((s, r) => s + r.total, 0);
+  const abierto = Object.values(mesas).filter(m => m && !m.oculta).reduce((s, m) => s + (m.items || []).reduce((ss, it) => ss + it.precio * it.qty, 0), 0);
+  const totalDia = cerrado + abierto;
+  const el = document.getElementById("stat-total-dia");
+  if (el) {
+    el.textContent = `$${totalDia}`;
+    el.style.filter = totalDiaVisible ? "none" : "blur(6px)";
+  }
+}
+
+function toggleTotalDia() {
+  totalDiaVisible = !totalDiaVisible;
+  const el = document.getElementById("stat-total-dia");
+  if (el) el.style.filter = totalDiaVisible ? "none" : "blur(6px)";
 }
 
 // ─── Borrar/Reducir Stock ─────────────────────────────────────────────────────
@@ -1350,6 +1388,44 @@ function toast(m, e = false, type = "") {
   t.textContent = m;
   document.getElementById("toasts").appendChild(t);
   setTimeout(() => t.remove(), 3000);
+}
+
+// ─── Cerrar Día ───────────────────────────────────────────────────────────────
+function confirmarCerrarDia() {
+  document.getElementById("cerrar-dia-pass").value = "";
+  openModal("modal-cerrar-dia");
+}
+
+function ejecutarCerrarDia() {
+  const pass = document.getElementById("cerrar-dia-pass").value;
+  if (pass !== PASS) { toast("❌ Contraseña incorrecta", true); return; }
+
+  // Exportar Excel antes de borrar
+  if (db.length > 0) {
+    exportExcel();
+  }
+
+  // Devolver inventario de todas las mesas abiertas
+  Object.values(mesas).forEach(m => {
+    if (m && m.items) {
+      m.items.forEach(it => {
+        if (it.trackKey && inv[it.trackKey]) {
+          inv[it.trackKey].stock += it.qty;
+        }
+      });
+    }
+  });
+
+  // Borrar todas las mesas y el historial del día
+  mesas = {};
+  db = [];
+  mesaActiva = null;
+
+  save();
+  closeModal("modal-cerrar-dia");
+  renderMesas();
+  document.getElementById("ticket-panel").innerHTML = `<div class="empty-panel"><div class="big-icon">🌙</div><p>¡Buen trabajo!<br>El día ha sido cerrado.</p></div>`;
+  toast("🌙 Día cerrado. ¡Hasta mañana!");
 }
 
 // Enter en inputs
