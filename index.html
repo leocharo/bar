@@ -533,7 +533,6 @@ function getStockInfo(it) {
   if (!it.trackKey || !inv[it.trackKey]) return { html: "", out: false };
   const s = inv[it.trackKey];
   if (s.stock <= 0) return { html: `<div class="menu-item-stock out">❌ Sin stock</div>`, out: true };
-  if (s.stock <= s.lowThreshold) return { html: `<div class="menu-item-stock low">⚠️ Quedan ${s.stock}</div>`, out: false };
   return { html: `<div class="menu-item-stock">📦 ${s.stock} disponibles</div>`, out: false };
 }
 
