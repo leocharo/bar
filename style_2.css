@@ -62,7 +62,7 @@
 
   .ticket-header { padding: 14px 24px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
   .ticket-mesa-info { display: flex; align-items: center; justify-content: space-between; }
-  .ticket-mesa-nombre { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 2px; color: var(--accent); }
+  .ticket-mesa-nombre { font-family: 'Bebas Neue', sans-serif; font-size: 2.2rem; letter-spacing: 2px; color:  var(--accent); }
   .ticket-mesa-num { font-size: 0.7rem; color: var(--muted); margin-top: -3px; }
 
   .ticket-body { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; }
@@ -288,7 +288,7 @@
   .btn-add-prod:hover { background: #ffbe4a; }
   .btn-add-prod.edit-mode { background: var(--blue); color: #fff; }
   .btn-add-prod.edit-mode:hover { background: #6db4ff; }
-  .menu-cat-header { font-family: 'Bebas Neue', sans-serif; font-size: 1.35rem; letter-spacing: 1.5px; color: var(--accent); text-transform: uppercase; padding: 8px 4px 4px; margin-top: 4px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .menu-cat-header { font-family: 'Bebas Neue', sans-serif; font-size: 1.35rem; letter-spacing: 1.5px; color: white; text-transform: uppercase; padding: 8px 4px 4px; margin-top: 4px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
   .menu-cat-header:first-child { margin-top: 0; }
   .stat-total-btn { cursor: pointer; border-radius: 8px; padding: 4px 8px; transition: background 0.2s; }
   .stat-total-btn:hover { background: rgba(245,166,35,0.08); }
