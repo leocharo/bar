@@ -46,8 +46,8 @@
   .mesa-card.junta { border-color: var(--blue) !important; background: rgba(74,158,255,0.05); }
   .mesa-card.hidden-card { display: none !important; }
 
-  .mesa-num { font-family: 'Bebas Neue', sans-serif; font-size: 0.78rem; letter-spacing: 1px; color: var(--muted); }
-  .mesa-ocupada-nombre { font-size: 0.58rem; font-weight: 600; color: var(--accent2); text-transform: uppercase; max-width: 86%; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mesa-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.35rem; letter-spacing: 1px; color: var(--muted); }
+  .mesa-ocupada-nombre { font-size: 0.85rem; font-weight: 600; color: var(--accent2); text-transform: uppercase; max-width: 86%; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mesa-total { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--accent); }
   .mesa-pagada-badge { font-size: 0.55rem; color: var(--green); font-weight: 600; }
   .mesa-junta-badge { font-size: 0.5rem; color: var(--blue); font-weight: 600; }
@@ -288,7 +288,7 @@
   .btn-add-prod:hover { background: #ffbe4a; }
   .btn-add-prod.edit-mode { background: var(--blue); color: #fff; }
   .btn-add-prod.edit-mode:hover { background: #6db4ff; }
-  .menu-cat-header { font-family: 'Bebas Neue', sans-serif; font-size: 0.85rem; letter-spacing: 1.5px; color: var(--accent); text-transform: uppercase; padding: 8px 4px 4px; margin-top: 4px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .menu-cat-header { font-family: 'Bebas Neue', sans-serif; font-size: 1.35rem; letter-spacing: 1.5px; color: var(--accent); text-transform: uppercase; padding: 8px 4px 4px; margin-top: 4px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
   .menu-cat-header:first-child { margin-top: 0; }
   .stat-total-btn { cursor: pointer; border-radius: 8px; padding: 4px 8px; transition: background 0.2s; }
   .stat-total-btn:hover { background: rgba(245,166,35,0.08); }
