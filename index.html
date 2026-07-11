@@ -169,7 +169,25 @@
     </div>
   </div>
 </div>
-
+<!-- Modal: Consumo Mínimo -->
+<div class="overlay" id="modal-consumo-minimo">
+  <div class="modal">
+    <div class="modal-title" style="color:var(--accent);">🧾 Consumo Mínimo</div>
+    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:12px;">
+      El consumo actual de la mesa es <strong id="cm-actual" style="color:var(--text)">$0</strong> de un mínimo de <strong id="cm-minimo" style="color:var(--text)">$100</strong>.
+      Selecciona cuánto falta para completarlo:
+    </p>
+    <div class="cm-lista" id="cm-lista"></div>
+    <div style="margin-top:12px;">
+      <label style="font-size:0.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px;">O escribe otro monto</label>
+      <input type="number" class="pago-doble-input" id="cm-monto-custom" placeholder="0" min="1" style="width:100%;">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-consumo-minimo')">Cancelar</button>
+      <button class="btn-confirm" style="background:var(--accent);color:#fff;" onclick="agregarConsumoMinimoCustom()">Agregar Monto</button>
+    </div>
+  </div>
+</div>
 <!-- Modal: Juntar Mesas -->
 <div class="overlay" id="modal-juntar">
   <div class="modal">
@@ -373,6 +391,7 @@ const MENU_DEFAULTS = [
 let MENU = JSON.parse(localStorage.getItem("botanero_menu") || JSON.stringify(MENU_DEFAULTS));
 
 const PASS = "20051017";
+const CONSUMO_MINIMO = 100;
 
 let mesas    = JSON.parse(localStorage.getItem("botanero_mesas") || "{}");
 let db       = JSON.parse(localStorage.getItem("botanero_db")    || "[]");
@@ -526,7 +545,65 @@ function buildMenuHTML() {
       </div>`;
     }).join("");
     return `<div class="menu-cat-header">${cat}</div>${itemsHTML}`;
-  }).join("");
+  }).join("") + `
+    <div class="menu-cat-header">🧾 Consumo Mínimo</div>
+    <div class="menu-item">
+      <div class="menu-item-left">
+        <div class="menu-item-name-row">🧾 Complemento consumo mínimo</div>
+        <div class="menu-item-price">Mínimo: $${CONSUMO_MINIMO}</div>
+      </div>
+      <button class="add-btn" onclick="abrirConsumoMinimo()">+</button>
+    </div>`;
+}
+
+// ─── Consumo Mínimo ──────────────────────────────────────────────────────────
+function abrirConsumoMinimo() {
+  const m = mesas[mesaActiva];
+  if (!m) return;
+  const actual = calcTotal(mesaActiva);
+  const resta = Math.max(0, CONSUMO_MINIMO - actual);
+
+  document.getElementById("cm-actual").textContent = `$${actual}`;
+  document.getElementById("cm-minimo").textContent = `$${CONSUMO_MINIMO}`;
+  document.getElementById("cm-monto-custom").value = "";
+
+  const montos = new Set();
+  if (resta > 0) montos.add(resta);
+  [5,10,15,20,25,30,40,50,60,70,80,90,100].forEach(v => { if (v > 0 && v <= CONSUMO_MINIMO) montos.add(v); });
+
+  const lista = [...montos].sort((a,b) => a-b);
+  document.getElementById("cm-lista").innerHTML = lista.map(v => `
+    <div class="cm-opt ${v === resta && resta > 0 ? "cm-sugerido" : ""}" onclick="agregarConsumoMinimo(${v})">
+      <span class="cm-opt-val">$${v}</span>
+      ${v === resta && resta > 0 ? '<span class="cm-opt-tag">Lo que falta</span>' : ""}
+    </div>`).join("");
+
+  openModal("modal-consumo-minimo");
+}
+
+function agregarConsumoMinimo(monto) {
+  const m = mesas[mesaActiva];
+  if (!m || !monto || monto <= 0) return;
+  m.items.push({
+    id: `cm-${Date.now()}`,
+    nombre: "Consumo Mínimo",
+    precio: monto,
+    qty: 1,
+    cat: "Consumo Mínimo",
+    icon: "🧾",
+    trackKey: null
+  });
+  save();
+  renderTicketItems();
+  renderMesas();
+  closeModal("modal-consumo-minimo");
+  toast(`✅ Consumo Mínimo de $${monto} agregado a la cuenta`);
+}
+
+function agregarConsumoMinimoCustom() {
+  const monto = parseFloat(document.getElementById("cm-monto-custom").value);
+  if (!monto || monto <= 0) { toast("Ingresa un monto válido", true); return; }
+  agregarConsumoMinimo(monto);
 }
 
 function getStockInfo(it) {
